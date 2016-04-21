@@ -151,3 +151,48 @@ net:
   http:
     enabled: true
 ```
+#####query crash
+save will update old value, insert will not.
+######temporal
+```
+ObjectId("123123123").getTimestamp() //get time portion
+```
+######cursor
+```
+var x =db.x.find()
+x.next()
+```
+#####data in out
+mongodump  
+by default, it will dump data into /dump folder of root folder
+```
+mongodump --port 27017 --host x --out d:\..
+```
+######oplog
+can not run on standalone mongo, must create a replica set
+```
+mongodump --oplog --port 20000
+```
+######dump specific db
+by default mongodump will dump all db
+```
+mongodump --db dbname
+mongodump --db dbname --collection tbname
+```
+######credentials
+```
+mongodump --username a --password b --out d:\..
+```
+######mongorestore
+```
+mongorestore \dump
+```
+###### drop
+restore from back files, will drop existing files on server (fullrestore)
+```
+mongorestore --drop  \dump
+```
+######restore collection
+```
+mongorestore --drop --collection tbname --db dbname \dump\tbname\a.bson
+```
