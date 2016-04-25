@@ -392,6 +392,98 @@ db.cl.insert({x:'hi'},{writeConcern:{w:1}})
 db.cl.insert({x:'hi'},{writeConcern:{w:1,wtimeout:1000}}) 
 ```
 
+
+#####sharding (sharding:scalibility replicaset:durability)
+[see here for version 3.2](https://docs.mongodb.org/manual/tutorial/deploy-shard-cluster/)
+structure:  
+application->mongos(router) ,a cinfig server,some shard server
+######simplistic topology
+start configserver
+```
+start mongod --configsvr --dbpath test/cfg1
+```
+start mongos routing based on above
+```
+start mongos --configdb myserver
+```
+start two mongod server for shards
+```
+md test/s1
+md test/s2
+mongod --port 30001 --dbpath test/s1
+mongod --port 30002 --dbpath test/s2
+```
+by default mongos will run on 27017. start:
+```
+mongo
+```
+after log in it should be mingis prompt
+```
+sh.addShard('myserver:30001')
+sh.addShard('myserver:30002')
+```
+ebable sharing
+```
+sh.enableSharding('dbname')
+sh.shardCollection('dbname.cl',{'field.a':1,'field.b':1})
+```
+######using sharded cluster
+```
+db.chunks.find().pretty()
+```
+save doc
+```
+doc
+db.cl.save(doc)
+```
+######production topology
+we use 3 config server+3 shard server
+```
+start mongos --configdb myserver:40001 myserver:40002 myserver:40003
+```
+syntax to add a replica server
+```
+sh.addShard("r1/myserver:27018")  //replicaname/servername :port
+```
+
+
+######evaluation
+hashed key- only on a single field
+```
+sh.shardCollection("dbname.cl",{"fn":"hashed"})
+```
+######tag aware demo
+refer  `production topology 4:37`
+```
+sh.status()
+```
+will get
+```
+shards:{"_id":"shard0000","host":"localhost:30000"}
+....
+```
+add tag
+```
+sh.addShardTag('shard0000",'tagname');
+```
+add range definition: syntax: keyname, from(inclusive) to(exclusive),tag
+```
+sh.addTagRange("db.cl",{country:"01"},{country:"02"},"newtagname")
+sh.addTagRange("db.cl",{country:"01"},{country:MaxKey},"newtagname2")
+```
+enable
+```
+sh.shardCollection('db.cl',{country:1})
+```
+######move chunk
+```
+sh.moveChunk("db.cl",{country:"01},"shard0003"}
+```
+######verify
+```
+connect('localhost:30000/db').messages.find()
+```
+
 #####monitering
 ######log file
 ```
@@ -447,6 +539,9 @@ diagnostic: mongostat->db.stats()->db.col.stats()->explain()
 db.serverStatus();
 db.runCommmand({serverStatus:1})
 ```
+
+
+
 
 
 #####security
