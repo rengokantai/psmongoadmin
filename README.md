@@ -297,6 +297,73 @@ match must from leftmost.
 db.cl.find({'a':x,'b':x}).sort({c:1}).explain()
 db.cl.find({'a':x}).sort({c:1}).explain()   //sort will use slow scan
 ```
+######sparse index
+sparse index cannot be properly sorted, must use hint
+```
+db.cl.createIndex({sparseidx:1},{sparse:true})
+db.cl.find().sort({sparseidx:1}).hint({sparseidx:1}).explain('executionStats')
+```
+######unique index(doc with same key valuecannot insert twice)
+```
+db.cl.createIndex({uniqidx:1},{unique:true})
+```
+###### TTL index (one ttl per collection)
+```
+db.cl.createIndex({field:[-1|1]},{expireAfterSeconds:1000});
+```
+######rebuild
+rebuild all indexes on a collection
+```
+db.cl.reIndex()
+```
+or
+```
+db.runCommand({compact:'cl'})
+```
+
+
+
+#####replica sets
+######capped coll
+when write to a server, it will convert to oplog and write to another secondaries
+
+######simple rep
+```
+mongod --dbpath . --replSet r1 --oplogSize 1  // how large megabyte
+```
+######reconfig
+```
+var conf = rs.config()
+rs.reconfig(conf)
+```
+#######more
+```
+mongod --dbpath . --port (1-3) --replSet r1
+mongo --port 1
+rs.initiate()
+rs.add(127.0:30002)
+rs.add(127.0:30002,true) //will be arbiter, do not store any data
+```
+connect to another server
+```
+db= connect("mysserver:30002/test")
+db.setSlaveOk()
+```
+######failover
+our current cluster has 2 server,arbiter. If a server and arbiter die, the cluster will die
+######priority
+```
+var conf = rs.config()
+conf.members[0].priority=10
+```
+```
+db.getMongo()
+```
+######stepdown
+```
+rs.stepDown(20) //shut down temperarily
+```
+
 
 
 
@@ -336,13 +403,166 @@ db.setProfilingLevel(0,100)
 ```
 db.system.profile.findOne({op:'query':ns:'dbname.cl'})
 ```
+######mongostat
+basic
+```
+mongostat --host xx --port xx --rowcount 2  //show how many times
+```
+######mongotop
+show time spend
+```
+mongotop --host xx --port xx --rowcount 2  //show how many times
+```
+######db.stats()
+```
+db.stats(1024) //in kb
+```
+diagnostic: mongostat->db.stats()->db.col.stats()->explain()
+######db.serverStatus()
+```
+db.serverStatus();
+db.runCommmand({serverStatus:1})
+```
 
 
 #####security
 ######surface area
 default port:  
 standalone:27017  --shardsvr: 27018 --configsvr:27019  mongos:27017
+######ssl
+```
+net:
+  ssl:
+    mode:requireSSL
+    PEMKeyFile: ..pem
+    PEMKeyPassword: 
+    CAFile:
+```
+connect:
+```
+mongo --ssl -sslCAFile x.pem --host hostname --sslPEMKeyPassword pass
+```
+######replica set with SSL
+m1.conf
+```
+storage:
+  dbPath: ../m1
+replication:
+  replSetName: r1
+net:
+  port: 30001
+  ssl:
+    mode:requireSSL
+    PEMKeyFile: ..pem
+    PEMKeyPassword: 
+    CAFile:
+```
+m2.conf
+```
+storage:
+  dbPath: ../m2
+replication:
+  replSetName: r1
+net:
+  port: 30002
+  ssl:
+    mode:requireSSL
+    PEMKeyFile: ..pem
+    PEMKeyPassword: 
+    CAFile:
+```
+start both
+```
+mongod --config 1.conf
+mongod --config 2.conf
+```
+```
+mongo --port 30001 --ssl -sslCAFile x.pem --host hostname --sslPEMKeyPassword pass
+```
+when connected, use
+```
+cfg
+```
+to check replSet
+```
+rs.initiate(cfg)
+rs.status()
+```
+######roles
+root, userAdminAnyDatabase
+######creating a user
+conf:
+```
+storage:
+  dbPath: 
+secirity:
+  authorization: enabled
+```
+start
+```
+mongod --config .conf
+```
+first time login, no password required
+```
+use admin
+usr
+db.createUser(usr)
+```
+login again
+```
+mongo --username superUserAdmin --password 1234 myserver/admin
+```
+create new user
+```
+var n ={user:'reporter',pwd:'123',roles:[{role:'read',db:'db'}]}
+var app={user:'app',pwd:'123',roles:[{role:'readWrite',db:'db'}]}
+db.createUser(n)
+```
+current user is superUserAdmin,
+```
+show collections //will fail
+db.grantRolesToUser("superUserAdmin",['readWrite"])
+```
+```
+db.system.users.findOne()
+```
+other api
+```
+db.dropUser("superUserAdmin")
+db.revokeRolesFromUser("superUserAdmin",["read"])
+```
+######logging in
+```
+db.logout()
+```
+re log in
+```
+db.auth('app','1234')
+```
+```
+use dbname
+db.createUser({'user':'a','pwd':'p','roles':['read']})
+```
+show all users
+```
+use admin
+db.system.users.find({},{credentials:0}),pretty()
+```
+grant a user to another database
+```
+db.grantRolesToUser("a",[{role:'read',db:'other'}])
+```
+login user must using authenticationDatabase
+```
+mongo --username a --password 123 --authenticationDatabase db
+```
 
+######key file in cluster
+```
+security:
+  keyFile:
+  clusterAuthMode:
+```
 
 #####misc
 ######meomry
