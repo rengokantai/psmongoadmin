@@ -361,12 +361,36 @@ db.getMongo()
 ```
 ######stepdown
 ```
-rs.stepDown(20) //shut down temperarily
+rs.stepDown(20) //shut down temperarily   //rs.stepDown()  noparam=60 sec
+```
+######freeze
+let a second server not to become primary server for some time
+```
+rs.freeze(40)
+```
+######hidden
+cannot become primary forever
+```
+cfg.members[2].priority=0
+cfg.members[2].hidden=true
 ```
 
+######chaining
+dc2 pull data from dc1
+allow: pull from secondary
+disallow: pull from primary
+######durability
 
-
-
+######writeconcern
+```
+db.cl.insert({x:'hi'},{writeConcern:{w:0}})  //0 member need to ackowledge
+db.cl.insert({x:'hi'},{writeConcern:{j:true}})  //normal
+db.cl.insert({x:'hi'},{writeConcern:{w:1}}) 
+```
+######timeout
+```
+db.cl.insert({x:'hi'},{writeConcern:{w:1,wtimeout:1000}}) 
+```
 
 #####monitering
 ######log file
